@@ -1,0 +1,274 @@
+---
+title: "Bike Share Ride Analysis"
+author: "Avinash Ganesh"
+date: "2024-05-15"
+output: html_document
+---
+
+## <u>Problem Background</u>
+
+### Introduction
+- The Cyclistic bike-share analysis case study is my Google Data Analytics Capstone Project where I work for a fictional company, Cyclistic and follow the steps of the data analysis process (Ask, Prepare, Process, Analyze, Share, Act) to answer business questions. The scenario is described as follows:
+	
+	- Acting as a data analyst working on the marketing analyst team at Cyclistic, a bike-share company in Chicago.
+	
+	- Director of marketing believes that company's future success depends on maximizing the number of annual memberships.
+	
+	- Analytics team must understand how casual riders and annual members use Cyclistic bikes differently.
+  
+  - The team will design a new marketing strategy to convert casual riders into annual members using compelling data insights and professional data visualizations
+
+### Characters and Teams
+- Cyclistic
+  
+  - A bike-share program that features more than 5,800 bicycles and 600 docking stations. 
+  
+  - Cyclistic sets itself apart by also offering reclining bikes, hand tricycles, and cargo bikes, making bike-share more inclusive to people with disabilities and riders who can't use a standard two-wheeled bike.
+  
+  - Majority of riders opt for traditional bikes; about 8% of riders use the assistive options.
+Users more likely to ride for leisure, but about 30% use bikes to commute to work everyday.
+
+- Lily Moreno
+
+   - Director of marketing and responsible for development of campaigns and initiatives to promote the bike-share program through email, social media, and other channels.
+<br/><br/>
+- Cyclistic Marketing Analytics Team
+
+  - Team of data analysts who are responsible for collecting, analyzing, and reporting data that helps guide marketing strategy.
+<br/><br/>
+- Cyclistic Executive Team
+
+  - Detail-oriented executive team that will decide to approve the recommended marketing program.
+  
+## <u>Data Analysis</u>
+
+### Ask: A clear statement of the business task
+- Three questions will guide the future marketing program:
+
+  - How do annual members and casual riders use Cyclistic bikes differently?
+  
+  - Why would casual riders buy Cyclisitic annual memberships?
+  
+  - How can Cyclisitic use digital media to influence casual riders to become members?
+
+- Business Task
+
+  - The business task is to analyze the usage patterns of casual riders and annual members of Cyclisitic bikes in Chicago to identify key differences in their behavior. These insights will inform the development of a targeted marketing strategy aimed at converting casual riders into annual members, ultimately maximizing the number of annual memberships and driving the company's future success.
+
+### Prepare: A description of all data sources used
+- Download the data and store it appropriately
+
+  - Data downloaded from this [link](https://divvy-tripdata.s3.amazonaws.com/index.html), and stored on local PC.
+  
+  - Data downloaded from December 2023 - April 2024
+
+- Imported the appropriate libraries for use
+
+```{r}
+library(tidyverse)
+library(readr)
+library(ggplot2)
+```
+
+- Identified the data and organized all data sources
+
+```{r}
+# Specify the file path to CSV file
+jan2024_data_file_path <- "C:/Users/Owner/Downloads/202312-divvy-tripdata/202312-divvy-tripdata.csv"
+feb2024_data_file_path <- "C:/Users/Owner/Downloads/202401-divvy-tripdata/202401-divvy-tripdata.csv"
+mar2024_data_file_path <- "C:/Users/Owner/Downloads/202402-divvy-tripdata/202402-divvy-tripdata.csv"
+apr2024_data_file_path <- "C:/Users/Owner/Downloads/202403-divvy-tripdata/202403-divvy-tripdata.csv"
+may2024_data_file_path <- "C:/Users/Owner/Downloads/202404-divvy-tripdata/202404-divvy-tripdata.csv"
+
+# Read CSV file into a data frame
+jan2024_data <- read.csv(jan2024_data_file_path)
+feb2024_data <- read.csv(feb2024_data_file_path)
+mar2024_data <- read.csv(mar2024_data_file_path)
+apr2024_data <- read.csv(apr2024_data_file_path)
+may2024_data <- read.csv(may2024_data_file_path)
+
+# Combine into 1 file
+trip_data <- bind_rows(jan2024_data, feb2024_data, mar2024_data, apr2024_data, may2024_data)
+
+# Inspect data
+colnames(trip_data) # List of column names
+dim(trip_data) # Dimensions of data frame
+head(trip_data) # First 6 rows of data frame
+tail(trip_data) # Last 6 rows of data frame
+str(trip_data) # Structure of data frame
+summary(trip_data) # Statistical summary of data
+View(trip_data) # View the data frame
+```
+### Process: Documentation of any cleaning or manipulation of data
+- Check the data for errors, empty strings, NA values
+```{r}
+# Replace empty strings with NA
+trip_data[trip_data == ""] <- NA
+
+# Keep only the rows with no NA values
+trip_datav2 <- trip_data[complete.cases(trip_data), ]
+```
+- Added additional columns to provide opportunities to aggregate data
+```{r}
+# Adding additional columns of data (date, day, month, year, day of week) for data aggregation
+trip_datav2$date <- as.Date(trip_datav2$started_at)
+trip_datav2$month <- format(as.Date(trip_datav2$date), "%m")
+trip_datav2$day <- format(as.Date(trip_datav2$date), "%d")
+trip_datav2$year <- format(as.Date(trip_datav2$date), "%Y")
+trip_datav2$day_of_week <- format(as.Date(trip_datav2$date), "%A")
+```
+- Added additional column to compute ride duration, and removed rows that had a negative ride duration
+```{r}
+# Add a column that computes the ride length
+trip_datav2$ride_length <- difftime(trip_datav2$ended_at, trip_datav2$started_at)
+trip_datav2$ride_length <- as.numeric(as.character(trip_datav2$ride_length)) # Convert to numeric
+str(trip_datav2)
+
+# Delete negative trip duration rows
+trip_datav3 <- trip_datav2[!(trip_datav2$ride_length<0), ]
+```
+
+### Analyze: A summary of analysis
+- Outputted basic statistical analysis of ride durations and compared both user types (members vs casual)
+```{r}
+# Statistical analysis of ride length
+summary(trip_datav3$ride_length)
+
+# Compare members and casual users
+aggregate(trip_datav3$ride_length ~ trip_datav3$member_casual, FUN = mean)
+aggregate(trip_datav3$ride_length ~ trip_datav3$member_casual, FUN = median)
+aggregate(trip_datav3$ride_length ~ trip_datav3$member_casual, FUN = max)
+aggregate(trip_datav3$ride_length ~ trip_datav3$member_casual, FUN = min)
+```
+- Aggregated data to analyze average ride duration per weekday by user type
+```{r}
+# See average ride time by each day for members vs casual users
+aggregate(trip_datav3$ride_length ~ trip_datav3$member_casual + trip_datav3$day_of_week, FUN = mean)
+
+# Fix order to make days of the week in order
+trip_datav3$day_of_week <- ordered(trip_datav3$day_of_week, levels = c("Sunday", "Monday", "Tuesday", 
+                                                                       "Wednesday", "Thursday", "Friday",
+                                                                       "Saturday"))
+# Re-run aggregate
+aggregate(trip_datav3$ride_length ~ trip_datav3$member_casual + trip_datav3$day_of_week, FUN = mean)
+```
+- Create a subset of the cleaned data frame that contains user type, weekday, total ride count, and average ride duration
+``` {r}
+# Analyze ridership data by type and weekday
+analyze_by_type_weekday <- trip_datav3 %>%
+  mutate(weekday = wday(started_at, label = TRUE)) %>% # Creates weekday field using wday()
+  group_by(member_casual, weekday) %>% # Groups by user type and weekday
+  summarise(number_of_rides = n()
+            ,average_duration = mean(ride_length)) %>% # Calculates number of rides and average duration
+  arrange(member_casual, weekday) # Sorts
+
+View(analyze_by_type_weekday)
+```
+
+### Share: Supporting visualiziations and key findings
+- A pie chart was created based on the type of users to identify the composition of Cyclistic's user base in 2024. The chart reveals that about 25% are casual members, and 75% are annual members.
+
+```{r, echo=FALSE}
+# Create pie chart to visualize proportion of rides by user type
+ride_proportions <- table(trip_datav3$member_casual) / nrow(trip_datav3) * 100
+pie_data <- data.frame(ride_proportions)
+colnames(pie_data) <- c("User_type", "Proportion")
+
+user_base <- ggplot(pie_data, aes(x = "", y = Proportion, fill = User_type))+
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +
+  labs(title = "Proportion of Rides by User Type", fill = "User Type") +
+  scale_fill_manual(values = c("member" = "#02AEB1", "casual" = "#FF7F7F")) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+print(user_base)
+```
+
+- A bar chart was created to visualize the total number of rides taken per weekday for each type of user. This chart reveals that annual members outnumber casual members on every day of the week by a large margin, except on weekends.
+  - This is aligned with the thinking that most members use it for everyday use and therefore have a more consistent amount of rides per day. It also aligns with the idea that casual members are often using it more on the weekends, when they are more available.
+  
+```{r, echo=FALSE}
+#Create a bar chart to visualize weekday vs number of rides by user type
+number_of_rides_vs_type_per_weekday <- analyze_by_type_weekday %>%
+  ggplot(aes(x = weekday, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge") +
+  labs(title = "Total Rides Per Weekday",
+       x = "Weekday",
+       y = "Total Rides",
+       fill = "User Type") +
+  theme(plot.title = element_text(hjust = 0.5))
+print(number_of_rides_vs_type_per_weekday)
+```
+
+- A bar chart was created to visualize the average ride duration per weekday for each type of user. This chart reveals that the average ride duration for casual members is higher than the annual members on every day of the week by a large margin.
+
+  - This discovery is aligned with the idea that casual members may be using the bike share to explore the area rather than to commute places.
+  
+```{r, echo=FALSE}
+# Create a bar chart to visualize weekday vs average duration by user type
+avg_ride_duration_vs_type_per_weekday <- analyze_by_type_weekday %>%
+  ggplot(aes(x = weekday, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge") +
+  labs(title = "Average Trip Duration Per Weekday",
+       x = "Weekday",
+       y = "Average Trip Duration",
+       fill = "User Type") +
+  theme(plot.title = element_text(hjust = 0.5))
+print(avg_ride_duration_vs_type_per_weekday)
+```
+- Two additional bar charts were generated to identify popular start stations and popular end stations, in order to identify key locations where marketing efforts could be focused to influence casual members to become annual members.
+
+  - The data reveals that 9/10 of the top 10 most popular start and end stations are the same, with the top 8 being exactly identical. This suggests that these are high traffic areas for Cyclistic to develop targeted strategies that address the specific needs and preferences of casual riders, to increase the likelihood of successful conversion to annual memberships.
+
+```{r, echo=FALSE}
+# Create a bar chart to visualize popular start and end stations
+
+# Create a subset dataframe with start and end station names and their counts
+start_stations <- as.data.frame(table(trip_datav3$start_station_name))
+colnames(start_stations) <- c("Station", "Count")
+end_stations <- as.data.frame(table(trip_datav3$end_station_name))
+colnames(end_stations) <- c("Station", "Count")
+
+# Sort the stations by count in descending order
+start_stations <- start_stations[order(-start_stations$Count), ]
+end_stations <- end_stations[order(-end_stations$Count), ]
+
+# Create a bar plot for popular start stations
+popular_start_stations <- ggplot(start_stations[1:10, ], aes(x = reorder(Station, -Count), y = Count)) +
+  geom_bar(stat = "identity", fill = "#2c2ccd") +
+  labs(title = "Top 10 Popular Start Stations",
+       x = "Station",
+       y = "Number of Rides") +
+  theme(axis.text.x = element_text(angle = 50, hjust = 1, size = 9.5)) +
+  theme(plot.title = element_text(hjust = 0.5))
+print(popular_start_stations)
+
+# Create a bar plot for popular end stations
+popular_end_stations <- ggplot(end_stations[1:10, ], aes(x = reorder(Station, -Count), y = Count)) +
+  geom_bar(stat = "identity", fill = "#2c2ccd") +
+  labs(title = "Top 10 Popular End Stations",
+       x = "Station",
+       y = "Number of Rides") +
+  theme(axis.text.x = element_text(angle = 50, hjust = 1, size = 9.5)) +
+  theme(plot.title = element_text(hjust = 0.5))
+print(popular_end_stations)
+```
+
+### Act: Recommendations based on analysis
+- Targeted Marketing Campaigns
+
+  - Since annual members have more total rides per day, Cyclistic should launch a targeted marketing campaign aimed at increasing the frequency of rides among casual riders. This can involve promotions or incentives to encourage casual riders to use the bike share more frequently. 
+  
+  - **Recommendation #1: Offering a discount for multiple rides within a certain time frame.**
+
+- Promotote Longer Rides
+
+  - Although casual members have fewer total rides per day, since they have a higher average ride duration per day, Cyclistic should highlight the benefits of longer rides and the value proposition of an annual membership. 
+  
+  - **Recommendation #2: Emphasize features like unlimited ride duration for members or exclusive access to certain routes or destinations.**
+
+- Enhance User Experience at Popular Stations
+
+  - Since the top 8 most popular start stations are the same as the top 8 most popular end stations, Cyclistic should focus on enhancing the user experience at these stations.
+  
+  - **Recommendation #3: Improve bike availability, optimize station layouts for easier access, and implement additional amenities or services to attract and retain users.**
